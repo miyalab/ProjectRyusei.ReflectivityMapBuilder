@@ -5,6 +5,7 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <fstream>
 #include <filesystem>
 
 // OpenCV
@@ -13,6 +14,7 @@
 // ROS2
 #include <sensor_msgs/msg/point_cloud.hpp>
 
+using geometry_msgs::msg::Point32;
 using sensor_msgs::msg::PointCloud;
 
 /**
@@ -24,7 +26,7 @@ using sensor_msgs::msg::PointCloud;
  */
 int main(int argc, char **argv)
 {
-    
+       
 }
 
 //-----------------------------------------------------------------------------------
