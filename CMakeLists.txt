@@ -7,7 +7,10 @@ if(WIN32)
     include_directories(C:/local/include)
     link_directories(C:/local/lib)
 else()
-    include_directories(/usr/local/include)
+    include_directories(
+        /usr/local/include
+        /opt/ros/foxy/include
+    )
     link_directories(/usr/local/lib)
 endif()
 
@@ -16,8 +19,9 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 include_directories(
-    /opt/ros/foxy/include
     inc
+    lib
+    ~/workspace/ros2_ws/install/ros_robocore_interfaces/include
 )
 
 # ビルドに関する設定
@@ -32,7 +36,11 @@ set(DEPENDENT_LIBS
     opencv_imgproc
 )
 
+add_library(${PROJECT_NAME} STATIC
+    lib/point_rotational_transform/point_rotational_transform.cpp
+)
+
 foreach(target IN LISTS EXECUTABLES)
     add_executable(${target} src/${target}.cpp)
-    target_link_libraries(${target} ${DEPENDENT_LIBS})
+    target_link_libraries(${target} ${DEPENDENT_LIBS} ${PROJECT_NAME})
 endforeach()
