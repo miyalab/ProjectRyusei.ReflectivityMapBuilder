@@ -28,13 +28,13 @@ using sensor_msgs::msg::PointCloud;
 using ros_robocore_interfaces::msg::RobotStateMsg;
 
 constexpr double unit          = 0.10;
-constexpr double ref_max       = 0.50;
-constexpr double ref_min       = 0.05;
+constexpr double ref_max       = 0.10;
+constexpr double ref_min       = 0.01;
 constexpr double r_min         = 3.0;
-constexpr double r_max         = 100.0;
+constexpr double r_max         = 10.0;
 constexpr double z_max         = 0.2;
-constexpr char mapImgPath[]    = "/home/kmiyauchi/map/tsukuba/tsukuba_map.png";
-constexpr char logPath[]       = "/home/kmiyauchi/share/sensor_20220917_134935/";
+constexpr char mapImgPath[]    = "/home/kmiyauchi/map/tsukuba/takaki_tsukuba.png";
+constexpr char logPath[]       = "/home/kmiyauchi/share/sensor_20221106_141716/";
 // constexpr char logPath[]       = "/home/kmiyauchi/share/sensor_20221106_141716/";
 constexpr char robotStateDir[] = "mercury_blue/mercury_state.csv";
 constexpr char locationDir[]   = "location/location.csv";
@@ -49,13 +49,17 @@ constexpr char pointsDir[]     = "pandar_40/";
  */
 int main(int argc, char **argv)
 {
-    cv::Mat mapImg(10001, 10001, CV_8UC3, cv::Scalar(0,0,0));
-    std::ifstream robotStateIfs((std::string)logPath + robotStateDir);
-    std::ifstream locationIfs((std::string)logPath + locationDir);
-    std::string line; std::getline(robotStateIfs, line);
-    
-    Pose location;
+    // cv::Mat mapImg(10001, 10001, CV_8UC3, cv::Scalar(0,0,0));
+    cv::Mat mapImg = cv::imread(mapImgPath);
+    if(mapImg.empty()) mapImg = cv::Mat(10001, 10001, CV_8UC3, cv::Scalar(0,0,0));
+    cv::cvtColor(mapImg, mapImg, cv::COLOR_BGR2HSV_FULL);
+
     RobotStateMsg robotStateMsg;
+    std::ifstream robotStateIfs((std::string)logPath + robotStateDir);
+    std::string line; std::getline(robotStateIfs, line);
+    Pose location;
+    std::ifstream locationIfs((std::string)logPath + locationDir);
+    std::getline(locationIfs, line);
 
     rs::PointRotationalTransform transform;
     transform.setOffset(0.0, -0.1, 0.4);
@@ -65,6 +69,7 @@ int main(int argc, char **argv)
         rs::quaternionToEulerAngle(location.orientation, &roll, &pitch, &location_yaw);
         rs::quaternionToEulerAngle(robotStateMsg.imu.orientation, &roll, &pitch, &imu_yaw);
         transform.setAngle(roll, pitch, location_yaw);
+        // transform.setAngle(0, 0, location_yaw);
         
         char stamp[16];
         PointCloud points;
@@ -72,7 +77,7 @@ int main(int argc, char **argv)
         std::ifstream pointCloudIfs((std::string)logPath + pointsDir + stamp);
         rs::loadPointCloud(pointCloudIfs, &points);
 
-        cv::Mat pointsImg(500,500,CV_8UC3, cv::Scalar(0));
+        cv::Mat pointsImg(500,500,CV_8UC3, cv::Scalar(0,0,0));
 
         // std::cout << i << ": " << points.points.size() << std::endl;
         for(int i=0, size=points.points.size(); i<size; i++){
@@ -88,7 +93,7 @@ int main(int argc, char **argv)
             int py = pointsImg.rows/2 - points.points[i].x/unit;
             if(0<= px && px < pointsImg.cols){
                 if(0<= py && py < pointsImg.rows){
-                    pointsImg.at<cv::Vec3b>(py, px)[0] = 170.0*(ref_max-(points.channels[1].values[i]-ref_min)/(ref_max-ref_min));
+                    pointsImg.at<cv::Vec3b>(py, px)[0] = 170.0*(1.0-(points.channels[1].values[i]-ref_min)/(ref_max-ref_min));
                     pointsImg.at<cv::Vec3b>(py, px)[1] = 255;
                     pointsImg.at<cv::Vec3b>(py, px)[2] = 255;
                 }
@@ -99,10 +104,11 @@ int main(int argc, char **argv)
 
             if(x<0 || mapImg.cols<=x) continue;
             if(y<0 || mapImg.rows<=y) continue;
-
-            mapImg.at<cv::Vec3b>(y,x)[0] = std::max((double)mapImg.at<cv::Vec3b>(y,x)[0], 170.0*(170.0*(ref_max-(points.channels[1].values[i]-ref_min)/(ref_max-ref_min))));
-            mapImg.at<cv::Vec3b>(y,x)[1] = 255;
-            mapImg.at<cv::Vec3b>(y,x)[2] = 255;            
+            if(mapImg.at<cv::Vec3b>(y,x)[1]!=0 || mapImg.at<cv::Vec3b>(y,x)[2]!=255){
+                mapImg.at<cv::Vec3b>(y,x)[0] = std::max((double)mapImg.at<cv::Vec3b>(y,x)[0], 170.0*(1.0-(points.channels[1].values[i]-ref_min)/(ref_max-ref_min)));
+                mapImg.at<cv::Vec3b>(y,x)[1] = 255;
+                mapImg.at<cv::Vec3b>(y,x)[2] = 255;
+            }
         }
         cv::Mat debugImg;
         cv::cvtColor(mapImg, debugImg, cv::COLOR_HSV2BGR_FULL);
