@@ -78,6 +78,7 @@ int main(int argc, char **argv)
         char stamp[16];
         PointCloud points;
         std::snprintf(stamp, sizeof(stamp), "%06d.csv", i*2+1);
+        // std::snprintf(stamp, sizeof(stamp), "%06d.csv", i);
         std::ifstream pointCloudIfs((std::string)logPath + pointsDir + stamp);
         rs::loadPointCloud(pointCloudIfs, &points);
 
