@@ -22,22 +22,24 @@
 #include "filesystem/log_load_functions_v2.hpp"
 #include "point_rotational_transform/point_rotational_transform.hpp"
 
+// #define DEBUG
+
 namespace rs = project_ryusei;
 using geometry_msgs::msg::Point32;
 using sensor_msgs::msg::PointCloud;
 using ros_robocore_interfaces::msg::RobotStateMsg;
 
 constexpr double unit          = 0.10;
-constexpr double ref_max       = 0.10;
+constexpr double ref_max       = 0.20;
 constexpr double ref_min       = 0.01;
 constexpr double r_min         = 3.0;
 constexpr double r_max         = 10.0;
 constexpr double z_max         = 0.2;
-constexpr char mapImgPath[]    = "/home/kmiyauchi/map/tsukuba/takaki_tsukuba.png";
+constexpr char mapImgPath[]    = "/home/kmiyauchi/share/map/tsukuba/tsukuba_1106/tsukuba_kansou_hokan_v2_denoised.png";
 constexpr char logPath[]       = "/home/kmiyauchi/share/sensor_20221106_141716/";
 // constexpr char logPath[]       = "/home/kmiyauchi/share/sensor_20221106_141716/";
 constexpr char robotStateDir[] = "mercury_blue/mercury_state.csv";
-constexpr char locationDir[]   = "location/location.csv";
+constexpr char locationDir[]   = "location/location_comp.csv";
 constexpr char pointsDir[]     = "pandar_40/";
 
 /**
@@ -65,51 +67,59 @@ int main(int argc, char **argv)
     transform.setOffset(0.0, -0.1, 0.4);
 
     for(int i=0; rs::loadMercuryState(robotStateIfs, &robotStateMsg) && rs::loadPose(locationIfs, &location); i++){
+        std::cout << i << std::endl;
         double roll, pitch, location_yaw, imu_yaw;
+        
         rs::quaternionToEulerAngle(location.orientation, &roll, &pitch, &location_yaw);
         rs::quaternionToEulerAngle(robotStateMsg.imu.orientation, &roll, &pitch, &imu_yaw);
-        transform.setAngle(roll, pitch, location_yaw);
-        // transform.setAngle(0, 0, location_yaw);
+        // transform.setAngle(roll, pitch, location_yaw);
+        transform.setAngle(0, 0, location_yaw);
         
         char stamp[16];
         PointCloud points;
-        std::snprintf(stamp, sizeof(stamp), "%06d.csv", i);
+        std::snprintf(stamp, sizeof(stamp), "%06d.csv", i*2+1);
         std::ifstream pointCloudIfs((std::string)logPath + pointsDir + stamp);
         rs::loadPointCloud(pointCloudIfs, &points);
 
+#ifdef DEBUG
         cv::Mat pointsImg(500,500,CV_8UC3, cv::Scalar(0,0,0));
+#endif
 
         // std::cout << i << ": " << points.points.size() << std::endl;
-        for(int i=0, size=points.points.size(); i<size; i++){
-            points.points[i] = transform.transPoint(points.points[i]);
+        for(int j=0, size=points.points.size(); j<size; j++){
+            points.points[j] = transform.transPoint(points.points[j]);
 
-            if(points.channels[1].values[i] > ref_max) continue;
-            if(points.channels[1].values[i] < ref_min) continue;
-            if(points.channels[0].values[i] < r_min) continue;
-            if(points.channels[0].values[i] > r_max) continue;
-            if(points.points[i].z > z_max) continue;
+            if(points.channels[1].values[j] > ref_max) continue;
+            if(points.channels[1].values[j] < ref_min) continue;
+            if(points.channels[0].values[j] < r_min) continue;
+            if(points.channels[0].values[j] > r_max) continue;
+            if(points.points[j].z > z_max) continue;
 
-            int px = pointsImg.cols/2 - points.points[i].y/unit;
-            int py = pointsImg.rows/2 - points.points[i].x/unit;
+#ifdef DEBUG
+            int px = pointsImg.cols/2 - points.points[j].y/unit;
+            int py = pointsImg.rows/2 - points.points[j].x/unit;
             if(0<= px && px < pointsImg.cols){
                 if(0<= py && py < pointsImg.rows){
-                    pointsImg.at<cv::Vec3b>(py, px)[0] = 170.0*(1.0-(points.channels[1].values[i]-ref_min)/(ref_max-ref_min));
+                    pointsImg.at<cv::Vec3b>(py, px)[0] = 170.0*(1.0-(points.channels[1].values[j]-ref_min)/(ref_max-ref_min));
                     pointsImg.at<cv::Vec3b>(py, px)[1] = 255;
                     pointsImg.at<cv::Vec3b>(py, px)[2] = 255;
                 }
             }
+#endif
             
-            const int &x = mapImg.cols/2 - (points.points[i].y + location.position.y)/unit;
-            const int &y = mapImg.rows/2 - (points.points[i].x + location.position.x)/unit;
+            const int &x = mapImg.cols/2 - (points.points[j].y + location.position.y)/unit;
+            const int &y = mapImg.rows/2 - (points.points[j].x + location.position.x)/unit;
 
             if(x<0 || mapImg.cols<=x) continue;
             if(y<0 || mapImg.rows<=y) continue;
             if(mapImg.at<cv::Vec3b>(y,x)[1]!=0 || mapImg.at<cv::Vec3b>(y,x)[2]!=255){
-                mapImg.at<cv::Vec3b>(y,x)[0] = std::max((double)mapImg.at<cv::Vec3b>(y,x)[0], 170.0*(1.0-(points.channels[1].values[i]-ref_min)/(ref_max-ref_min)));
+                mapImg.at<cv::Vec3b>(y,x)[0] = std::max((double)mapImg.at<cv::Vec3b>(y,x)[0], 170.0*(1.0-(points.channels[1].values[j]-ref_min)/(ref_max-ref_min)));
                 mapImg.at<cv::Vec3b>(y,x)[1] = 255;
                 mapImg.at<cv::Vec3b>(y,x)[2] = 255;
             }
         }
+
+#ifdef DEBUG
         cv::Mat debugImg;
         cv::cvtColor(mapImg, debugImg, cv::COLOR_HSV2BGR_FULL);
         cv::cvtColor(pointsImg, pointsImg, cv::COLOR_HSV2BGR_FULL);
@@ -117,6 +127,7 @@ int main(int argc, char **argv)
         cv::imshow("map", debugImg);
         cv::imshow("point", pointsImg);
         if(cv::waitKey(1) == 'q') break;
+#endif
     }
 
     cv::cvtColor(mapImg, mapImg, cv::COLOR_HSV2BGR_FULL);
