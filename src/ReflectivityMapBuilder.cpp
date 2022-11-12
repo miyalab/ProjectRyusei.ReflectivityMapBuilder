@@ -22,7 +22,7 @@
 #include "filesystem/log_load_functions_v2.hpp"
 #include "point_rotational_transform/point_rotational_transform.hpp"
 
-// #define DEBUG
+#define DEBUG
 
 namespace rs = project_ryusei;
 using geometry_msgs::msg::Point32;
@@ -31,9 +31,9 @@ using ros_robocore_interfaces::msg::RobotStateMsg;
 
 constexpr double unit          = 0.10;
 constexpr double ref_max       = 0.20;
-constexpr double ref_min       = 0.01;
-constexpr double r_min         = 3.0;
-constexpr double r_max         = 10.0;
+constexpr double ref_min       = 0.0;
+constexpr double r_min         = 8.0;
+constexpr double r_max         = 15.0;
 constexpr double z_max         = 0.2;
 constexpr char mapImgPath[]    = "/home/kmiyauchi/share/map/tsukuba/tsukuba_1106/tsukuba_kansou_hokan_v2_denoised.png";
 constexpr char logPath[]       = "/home/kmiyauchi/share/sensor_20221106_141716/";
@@ -124,9 +124,17 @@ int main(int argc, char **argv)
         cv::Mat debugImg;
         cv::cvtColor(mapImg, debugImg, cv::COLOR_HSV2BGR_FULL);
         cv::cvtColor(pointsImg, pointsImg, cv::COLOR_HSV2BGR_FULL);
+        cv::Mat localMap(
+            debugImg,
+            cv::Rect(
+                debugImg.cols/2 - location.position.y/unit - 250,
+                debugImg.rows/2 - location.position.x/unit - 250,
+                500, 500)
+        );
         cv::resize(debugImg, debugImg, cv::Size(1001, 1001));
         cv::imshow("map", debugImg);
         cv::imshow("point", pointsImg);
+        cv::imshow("localMap", localMap);
         if(cv::waitKey(1) == 'q') break;
 #endif
     }
