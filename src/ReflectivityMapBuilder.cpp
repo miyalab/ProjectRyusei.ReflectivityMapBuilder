@@ -31,8 +31,8 @@ using ros_robocore_interfaces::msg::RobotStateMsg;
 
 constexpr double unit          = 0.10;
 constexpr double ref_max       = 0.20;
-constexpr double ref_min       = 0.0;
-constexpr double r_min         = 8.0;
+constexpr double ref_min       = 0.02;
+constexpr double r_min         = 5.0;
 constexpr double r_max         = 15.0;
 constexpr double z_max         = 0.2;
 constexpr char mapImgPath[]    = "/home/kmiyauchi/share/map/tsukuba/tsukuba_1106/tsukuba_kansou_hokan_v2_denoised.png";
@@ -67,7 +67,6 @@ int main(int argc, char **argv)
     transform.setOffset(0.0, -0.1, 0.4);
 
     for(int i=0; rs::loadMercuryState(robotStateIfs, &robotStateMsg) && rs::loadPose(locationIfs, &location); i++){
-        std::cout << i << std::endl;
         double roll, pitch, location_yaw, imu_yaw;
         
         rs::quaternionToEulerAngle(location.orientation, &roll, &pitch, &location_yaw);
@@ -84,9 +83,9 @@ int main(int argc, char **argv)
 
 #ifdef DEBUG
         cv::Mat pointsImg(500,500,CV_8UC3, cv::Scalar(0,0,0));
+#else
+        std::cout << i << ": " << points.points.size() << std::endl;
 #endif
-
-        // std::cout << i << ": " << points.points.size() << std::endl;
         for(int j=0, size=points.points.size(); j<size; j++){
             points.points[j] = transform.transPoint(points.points[j]);
 
